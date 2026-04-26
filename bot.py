@@ -91,6 +91,75 @@ def get_date_keyboard():
     return keyboard
 
 # ----------------------------------------------------------------------
+# Обработчики отмены (должны быть ПЕРВЫМИ, чтобы перехватывать кнопку "Отмена")
+@dp.message_handler(commands=['cancel'], state='*')
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("Нет активного опроса.", reply_markup=get_main_keyboard())
+        return
+    await state.finish()
+    if message.from_user.id in user_data:
+        del user_data[message.from_user.id]
+    await message.answer("❌ Опрос отменён. Чтобы начать заново, нажмите «📝 Заполнить анкету».", reply_markup=get_main_keyboard())
+
+# Перехват русской кнопки "❌ Отмена" в ЛЮБОМ состоянии
+@dp.message_handler(lambda message: message.text == "❌ Отмена", state='*')
+async def cancel_button_handler(message: types.Message, state: FSMContext):
+    await cmd_cancel(message, state)
+
+# ----------------------------------------------------------------------
+# Обработчики команд и русских кнопок (основные команды)
+@dp.message_handler(commands=['start'])
+async def cmd_start(message: types.Message):
+    await message.answer(
+        "🏢 <b>Бот для заполнения анкеты сотрудника</b>\n\n"
+        "Я задам вопросы о вашей работе и сформирую документ .docx.\n\n"
+        "👉 Нажмите <b>«📝 Заполнить анкету»</b>, чтобы начать.\n"
+        "👉 <b>«❌ Отмена»</b> – прервать опрос.\n"
+        "👉 <b>«ℹ️ Помощь»</b> – справка.",
+        reply_markup=get_main_keyboard()
+    )
+
+@dp.message_handler(commands=['help'])
+async def cmd_help(message: types.Message):
+    await message.answer(
+        "📌 <b>Доступные действия</b>:\n\n"
+        "🏁 Старт – приветственное сообщение\n"
+        "📝 Заполнить анкету – начать новый опрос\n"
+        "❌ Отмена – прервать текущее анкетирование\n"
+        "ℹ️ Помощь – это сообщение\n\n"
+        "Для оценки (1-10) будут появляться кнопки.",
+        reply_markup=get_main_keyboard()
+    )
+
+@dp.message_handler(commands=['fill'])
+async def cmd_fill(message: types.Message):
+    user_id = message.from_user.id
+    if user_id in user_data:
+        await message.answer("У вас уже есть незавершённая анкета. Используйте «❌ Отмена», чтобы начать заново.")
+        return
+    user_data[user_id] = {}
+    await message.answer(
+        "✏️ <b>Начинаем заполнение анкеты.</b>\nВведите ваше <b>ФИО</b>:",
+        reply_markup=get_cancel_keyboard()
+    )
+    await Form.full_name.set()
+
+# Обработчики русских кнопок (не отмены) – они не должны конфликтовать
+@dp.message_handler(lambda message: message.text == "🏁 Старт")
+async def russian_start(message: types.Message):
+    await cmd_start(message)
+
+@dp.message_handler(lambda message: message.text == "📝 Заполнить анкету")
+async def russian_fill(message: types.Message):
+    await cmd_fill(message)
+
+@dp.message_handler(lambda message: message.text == "ℹ️ Помощь")
+async def russian_help(message: types.Message):
+    await cmd_help(message)
+
+# ----------------------------------------------------------------------
 # Генерация документа .docx
 def generate_docx(data: Dict[str, str], user_id: int) -> str:
     fio = data.get("full_name", "Сотрудник").replace(" ", "_")
@@ -167,73 +236,6 @@ def generate_docx(data: Dict[str, str], user_id: int) -> str:
     return filename
 
 # ----------------------------------------------------------------------
-# Обработчики команд и русских кнопок
-@dp.message_handler(commands=['start'])
-async def cmd_start(message: types.Message):
-    await message.answer(
-        "🏢 <b>Бот для заполнения анкеты сотрудника</b>\n\n"
-        "Я задам вопросы о вашей работе и сформирую документ .docx.\n\n"
-        "👉 Нажмите <b>«📝 Заполнить анкету»</b>, чтобы начать.\n"
-        "👉 <b>«❌ Отмена»</b> – прервать опрос.\n"
-        "👉 <b>«ℹ️ Помощь»</b> – справка.",
-        reply_markup=get_main_keyboard()
-    )
-
-@dp.message_handler(commands=['help'])
-async def cmd_help(message: types.Message):
-    await message.answer(
-        "📌 <b>Доступные действия</b>:\n\n"
-        "🏁 Старт – приветственное сообщение\n"
-        "📝 Заполнить анкету – начать новый опрос\n"
-        "❌ Отмена – прервать текущее анкетирование\n"
-        "ℹ️ Помощь – это сообщение\n\n"
-        "Для оценки (1-10) будут появляться кнопки.",
-        reply_markup=get_main_keyboard()
-    )
-
-@dp.message_handler(commands=['cancel'], state='*')
-async def cmd_cancel(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is None:
-        await message.answer("Нет активного опроса.", reply_markup=get_main_keyboard())
-        return
-    await state.finish()
-    if message.from_user.id in user_data:
-        del user_data[message.from_user.id]
-    await message.answer("❌ Опрос отменён. Чтобы начать заново, нажмите «📝 Заполнить анкету».", reply_markup=get_main_keyboard())
-
-@dp.message_handler(commands=['fill'])
-async def cmd_fill(message: types.Message):
-    user_id = message.from_user.id
-    if user_id in user_data:
-        await message.answer("У вас уже есть незавершённая анкета. Используйте «❌ Отмена», чтобы начать заново.")
-        return
-    user_data[user_id] = {}
-    await message.answer(
-        "✏️ <b>Начинаем заполнение анкеты.</b>\nВведите ваше <b>ФИО</b>:",
-        reply_markup=get_cancel_keyboard()
-    )
-    await Form.full_name.set()
-
-# ----------------------------------------------------------------------
-# Обработчики русских кнопок (перенаправление на команды)
-@dp.message_handler(lambda message: message.text == "🏁 Старт")
-async def russian_start(message: types.Message):
-    await cmd_start(message)
-
-@dp.message_handler(lambda message: message.text == "📝 Заполнить анкету")
-async def russian_fill(message: types.Message):
-    await cmd_fill(message)
-
-@dp.message_handler(lambda message: message.text == "❌ Отмена")
-async def russian_cancel(message: types.Message, state: FSMContext):
-    await cmd_cancel(message, state)
-
-@dp.message_handler(lambda message: message.text == "ℹ️ Помощь")
-async def russian_help(message: types.Message):
-    await cmd_help(message)
-
-# ----------------------------------------------------------------------
 # Обработчики состояний (опрос)
 @dp.message_handler(state=Form.full_name)
 async def process_full_name(message: types.Message, state: FSMContext):
@@ -265,7 +267,7 @@ async def process_date_callback(callback: types.CallbackQuery, state: FSMContext
     else:  # date_manual
         await callback.message.edit_text("Введите дату в формате <b>ДД.ММ.ГГГГ</b> (например, 25.12.2025):")
         await callback.answer()
-        return  # остаёмся в состоянии Form.date, ждём текста
+        return
     await callback.answer()
 
 @dp.message_handler(state=Form.date)
@@ -363,7 +365,7 @@ async def process_rating_callback(callback: types.CallbackQuery, state: FSMConte
 
 @dp.message_handler(state=Form.self_rating)
 async def process_rating_text(message: types.Message, state: FSMContext):
-    # Если пользователь ввел текст вместо кнопок
+    # Если пользователь ввёл текст вместо кнопок
     user_data[message.from_user.id]['self_rating'] = message.text.strip()
     await message.answer("Главная сильная сторона:")
     await Form.next()
@@ -403,7 +405,7 @@ async def process_self_one_change(message: types.Message, state: FSMContext):
     await state.finish()
 
 # ----------------------------------------------------------------------
-# Запуск (вебхук для Render или polling)
+# Запуск (вебхук или polling)
 async def on_startup(dp):
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
@@ -416,7 +418,8 @@ async def on_shutdown(dp):
     await dp.storage.wait_closed()
 
 if __name__ == "__main__":
-    if os.getenv("RENDER") or os.getenv("WEBHOOK_URL"):
+    # Если переменная WEBHOOK_URL задана – используем вебхук, иначе polling
+    if os.getenv("WEBHOOK_URL"):
         PORT = int(os.environ.get("PORT", 8443))
         WEBHOOK_PATH = "/webhook"
         from aiogram.utils.executor import start_webhook
