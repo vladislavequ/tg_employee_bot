@@ -15,6 +15,7 @@ from aiogram.types import (
 )
 from aiogram.filters import Command, StateFilter
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties  # <-- новый импорт
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -29,7 +30,7 @@ if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is not set!")
 
 storage = MemoryStorage()
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=storage)
 
 # ----------------------------------------------------------------------
@@ -100,17 +101,14 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
     await state.clear()
     if message.from_user.id in user_data:
         del user_data[message.from_user.id]
-    await message.answer("❌ Опрос отменён. Чтобы начать заново, нажмите «📝 Заполнить анкету».", reply_markup=get_main_keyboard())
+    await message.answer("❌ Опрос отменён.", reply_markup=get_main_keyboard())
 
 @dp.message(Command("start"))
 @dp.message(F.text == "🏁 Старт")
 async def cmd_start(message: types.Message):
     await message.answer(
         "🏢 <b>Бот для заполнения анкеты сотрудника</b>\n\n"
-        "Я задам вопросы о вашей работе и сформирую документ .docx.\n\n"
-        "👉 Нажмите <b>«📝 Заполнить анкету»</b>, чтобы начать.\n"
-        "👉 <b>«❌ Отмена»</b> – прервать опрос.\n"
-        "👉 <b>«ℹ️ Помощь»</b> – справка.",
+        "Нажмите «📝 Заполнить анкету», чтобы начать.",
         reply_markup=get_main_keyboard()
     )
 
@@ -119,11 +117,10 @@ async def cmd_start(message: types.Message):
 async def cmd_help(message: types.Message):
     await message.answer(
         "📌 <b>Доступные действия</b>:\n\n"
-        "🏁 Старт – приветственное сообщение\n"
-        "📝 Заполнить анкету – начать новый опрос\n"
-        "❌ Отмена – прервать текущее анкетирование\n"
-        "ℹ️ Помощь – это сообщение\n\n"
-        "Для оценки (1-10) будут появляться кнопки.",
+        "🏁 Старт – приветствие\n"
+        "📝 Заполнить анкету – начать опрос\n"
+        "❌ Отмена – прервать опрос\n"
+        "ℹ️ Помощь – это сообщение",
         reply_markup=get_main_keyboard()
     )
 
@@ -132,22 +129,18 @@ async def cmd_help(message: types.Message):
 async def cmd_fill(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     if await state.get_state() is not None:
-        await message.answer("У вас уже идёт опрос. Используйте «❌ Отмена», чтобы начать заново.", reply_markup=get_cancel_keyboard())
+        await message.answer("Уже идёт опрос. Используйте «❌ Отмена».", reply_markup=get_cancel_keyboard())
         return
     user_data[user_id] = {}
-    await message.answer(
-        "✏️ <b>Начинаем заполнение анкеты.</b>\nВведите ваше <b>ФИО</b>:",
-        reply_markup=get_cancel_keyboard()
-    )
+    await message.answer("✏️ <b>Начинаем.</b>\nВведите ваше <b>ФИО</b>:", reply_markup=get_cancel_keyboard())
     await state.set_state(Form.full_name)
 
 # ----------------------------------------------------------------------
 @dp.message(StateFilter(None))
 async def no_state_handler(message: types.Message):
     await message.answer(
-        "❗ Чтобы начать анкетирование, нажмите кнопку «📝 Заполнить анкету».\n"
-        "Если вы уже начали, но бот не отвечает – возможно, сессия сбросилась.\n"
-        "Используйте «❌ Отмена» и начните заново.",
+        "❗ Чтобы начать, нажмите «📝 Заполнить анкету».\n"
+        "Если уже начали – возможно, сессия сбросилась. Используйте «❌ Отмена».",
         reply_markup=get_main_keyboard()
     )
 
@@ -158,7 +151,7 @@ async def process_full_name(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: данные потеряны. Нажмите «📝 Заполнить анкету» заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['full_name'] = message.text.strip()
     await message.answer("Ваша <b>должность</b>:")
@@ -169,7 +162,7 @@ async def process_position(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['position'] = message.text.strip()
     await message.answer("Название <b>отдела / подразделения</b>:")
@@ -180,7 +173,7 @@ async def process_department(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['department'] = message.text.strip()
     await message.answer("📅 <b>Дата заполнения</b>:", reply_markup=get_date_keyboard())
@@ -190,7 +183,7 @@ async def process_department(message: types.Message, state: FSMContext):
 async def process_date_callback(callback: types.CallbackQuery, state: FSMContext):
     uid = callback.from_user.id
     if uid not in user_data:
-        await callback.message.edit_text("❌ Ошибка: начните анкету заново.")
+        await callback.message.edit_text("Ошибка. Начните заново.")
         await state.clear()
         await callback.answer()
         return
@@ -211,7 +204,7 @@ async def process_date_manual(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['date'] = message.text.strip()
     await message.answer("Ваш <b>стаж в должности</b>:")
@@ -222,7 +215,7 @@ async def process_experience(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['experience'] = message.text.strip()
     await message.answer("ФИО <b>непосредственного руководителя</b>:")
@@ -233,7 +226,7 @@ async def process_supervisor(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['supervisor'] = message.text.strip()
     await message.answer("🎯 <b>Основная цель вашей работы</b> (1-2 предложения):")
@@ -244,7 +237,7 @@ async def process_mission_goal(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['mission_goal'] = message.text.strip()
     await message.answer("Как ваша работа <b>влияет на успех компании</b>?")
@@ -255,7 +248,7 @@ async def process_mission_impact(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['mission_impact'] = message.text.strip()
     await message.answer("Что было бы, <b>если бы вашей должности не существовало</b>?")
@@ -266,10 +259,10 @@ async def process_mission_absence(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['mission_absence'] = message.text.strip()
-    await message.answer("📋 <b>Ключевые функции</b>\nОпишите 2-3 важнейшие функции. Для каждой: что входит, кому передаётся результат, стандарты.")
+    await message.answer("📋 <b>Ключевые функции</b>\nОпишите 2-3 важнейшие функции.")
     await state.set_state(Form.key_functions)
 
 @dp.message(Form.key_functions)
@@ -277,10 +270,10 @@ async def process_key_functions(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['key_functions'] = message.text.strip()
-    await message.answer("🧠 <b>Необходимые компетенции</b>\nПеречислите профессиональные, программные и мягкие навыки с уровнем владения (1-5) и примерами.")
+    await message.answer("🧠 <b>Необходимые компетенции</b>\nПеречислите навыки с уровнем владения (1-5).")
     await state.set_state(Form.competencies)
 
 @dp.message(Form.competencies)
@@ -288,10 +281,10 @@ async def process_competencies(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['competencies'] = message.text.strip()
-    await message.answer("💰 <b>Прямая ценность вашей работы</b>\nПриведите измеримые показатели: экономия времени (часов/месяц), снижение ошибок (%), оптимизация затрат (руб.).")
+    await message.answer("💰 <b>Прямая ценность</b>\nИзмеримые показатели (экономия времени, снижение ошибок).")
     await state.set_state(Form.direct_value)
 
 @dp.message(Form.direct_value)
@@ -299,10 +292,10 @@ async def process_direct_value(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['direct_value'] = message.text.strip()
-    await message.answer("🌟 <b>Косвенная ценность</b>\nЧто вы даёте компании, что нельзя измерить цифрами? (уникальные знания, поддержка процессов, связь между отделами)")
+    await message.answer("🌟 <b>Косвенная ценность</b>\nЧто нельзя измерить цифрами?")
     await state.set_state(Form.indirect_value)
 
 @dp.message(Form.indirect_value)
@@ -310,10 +303,10 @@ async def process_indirect_value(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['indirect_value'] = message.text.strip()
-    await message.answer("⚠️ <b>Проблемы и сложности</b>\nЧто мешает работать эффективно? (технические, организационные, коммуникационные)")
+    await message.answer("⚠️ <b>Проблемы и сложности</b>\nЧто мешает работать эффективно?")
     await state.set_state(Form.problems)
 
 @dp.message(Form.problems)
@@ -321,10 +314,10 @@ async def process_problems(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['problems'] = message.text.strip()
-    await message.answer("💡 <b>Идеи по улучшению</b>\n1) Что можете улучшить сами?\n2) Что нужно улучшить с помощью компании?\n3) Инновационные идеи.")
+    await message.answer("💡 <b>Идеи по улучшению</b>\nЧто можете улучшить вы? Что – с помощью компании?")
     await state.set_state(Form.improvements)
 
 @dp.message(Form.improvements)
@@ -332,10 +325,10 @@ async def process_improvements(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['improvements'] = message.text.strip()
-    await message.answer("🎯 <b>Цели на ближайшие 6 месяцев</b>\nКакие цели ставите? Какие навыки хотите развить? Как видите свой рост?")
+    await message.answer("🎯 <b>Цели на ближайшие 6 месяцев</b>\nКакие цели ставите?")
     await state.set_state(Form.goals)
 
 @dp.message(Form.goals)
@@ -343,10 +336,10 @@ async def process_goals(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['goals'] = message.text.strip()
-    await message.answer("📢 <b>Обратная связь компании</b>\n1) Что работает хорошо (сохранить)?\n2) Что нужно изменить в компании/отделе?")
+    await message.answer("📢 <b>Обратная связь компании</b>\nЧто работает хорошо? Что изменить?")
     await state.set_state(Form.feedback)
 
 @dp.message(Form.feedback)
@@ -354,25 +347,25 @@ async def process_feedback(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['feedback'] = message.text.strip()
-    await message.answer("⭐ <b>Оцените свою эффективность</b> по 10-балльной шкале (1 – очень низко, 10 – идеально).\nНажмите на кнопку:", reply_markup=get_rating_keyboard())
+    await message.answer("⭐ <b>Оцените свою эффективность</b> (1-10):", reply_markup=get_rating_keyboard())
     await state.set_state(Form.self_rating)
 
 @dp.callback_query(Form.self_rating, F.data.startswith("rating_"))
 async def process_rating_callback(callback: types.CallbackQuery, state: FSMContext):
     uid = callback.from_user.id
     if uid not in user_data:
-        await callback.message.edit_text("❌ Ошибка: начните анкету заново.")
+        await callback.message.edit_text("Ошибка. Начните заново.")
         await state.clear()
         await callback.answer()
         return
     rating = callback.data.split('_')[1]
     user_data[uid]['self_rating'] = rating
-    await callback.message.edit_text(f"⭐ Ваша оценка: {rating} из 10")
+    await callback.message.edit_text(f"⭐ Ваша оценка: {rating}")
     await callback.answer()
-    await bot.send_message(uid, "💪 <b>Ваша главная сильная сторона</b> в работе:")
+    await bot.send_message(uid, "💪 <b>Ваша главная сильная сторона</b>:")
     await state.set_state(Form.self_strength)
 
 @dp.message(Form.self_rating)
@@ -380,10 +373,10 @@ async def process_rating_text(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['self_rating'] = message.text.strip()
-    await message.answer("💪 <b>Ваша главная сильная сторона</b> в работе:")
+    await message.answer("💪 <b>Ваша главная сильная сторона</b>:")
     await state.set_state(Form.self_strength)
 
 @dp.message(Form.self_strength)
@@ -391,10 +384,10 @@ async def process_self_strength(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['self_strength'] = message.text.strip()
-    await message.answer("📉 <b>Над чем нужно работать</b> (что стоит улучшить)?")
+    await message.answer("📉 <b>Над чем нужно работать</b> (что улучшить)?")
     await state.set_state(Form.self_weakness)
 
 @dp.message(Form.self_weakness)
@@ -402,10 +395,10 @@ async def process_self_weakness(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['self_weakness'] = message.text.strip()
-    await message.answer("🚀 <b>Одно изменение, которое больше всего повысит вашу эффективность</b>:")
+    await message.answer("🚀 <b>Одно изменение, которое повысит вашу эффективность</b>:")
     await state.set_state(Form.self_one_change)
 
 @dp.message(Form.self_one_change)
@@ -413,10 +406,10 @@ async def process_self_one_change(message: types.Message, state: FSMContext):
     uid = message.from_user.id
     if uid not in user_data:
         await state.clear()
-        await message.answer("❌ Ошибка: начните анкету заново.", reply_markup=get_main_keyboard())
+        await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['self_one_change'] = message.text.strip()
-    await message.answer("Спасибо! Формирую документ... Пожалуйста, подождите.")
+    await message.answer("Спасибо! Формирую документ...")
 
     try:
         filename = generate_docx(user_data[uid], uid)
@@ -429,7 +422,7 @@ async def process_self_one_change(message: types.Message, state: FSMContext):
         os.remove(filename)
     except Exception as e:
         logger.exception("Ошибка при создании документа")
-        await message.answer(f"❌ Ошибка: {e}. Попробуйте ещё раз, нажав «📝 Заполнить анкету».")
+        await message.answer(f"❌ Ошибка: {e}. Попробуйте ещё раз.")
 
     if uid in user_data:
         del user_data[uid]
@@ -443,13 +436,11 @@ def generate_docx(data: Dict[str, str], user_id: int) -> str:
     title = doc.add_heading("Анкета сотрудника", level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     fill_date = data.get("date", datetime.now().strftime("%d.%m.%Y"))
-    doc.add_paragraph(f"Дата заполнения: {fill_date}")
-    doc.add_paragraph()
-
+    doc.add_paragraph(f"Дата заполнения: {fill_date}\n")
     doc.add_heading("1. Основная информация", level=1)
     table = doc.add_table(rows=6, cols=2)
     table.style = 'Table Grid'
-    data_map = [
+    info = [
         ("ФИО сотрудника", "full_name"),
         ("Должность", "position"),
         ("Отдел/Подразделение", "department"),
@@ -457,43 +448,33 @@ def generate_docx(data: Dict[str, str], user_id: int) -> str:
         ("Стаж в должности", "experience"),
         ("Непосредственный руководитель", "supervisor")
     ]
-    for i, (label, key) in enumerate(data_map):
+    for i, (label, key) in enumerate(info):
         table.cell(i,0).text = label
         table.cell(i,1).text = data.get(key, "") if isinstance(key, str) else key
-
     doc.add_heading("2. Миссия моей должности", level=1)
-    doc.add_paragraph(f"Основная цель работы:\n{data.get('mission_goal', '')}")
-    doc.add_paragraph(f"Влияние на успех компании:\n{data.get('mission_impact', '')}")
-    doc.add_paragraph(f"Если бы должности не существовало:\n{data.get('mission_absence', '')}")
-
+    doc.add_paragraph(f"Основная цель:\n{data.get('mission_goal', '')}")
+    doc.add_paragraph(f"Влияние на успех:\n{data.get('mission_impact', '')}")
+    doc.add_paragraph(f"Если бы должности не было:\n{data.get('mission_absence', '')}")
     doc.add_heading("3. Ключевые функции", level=1)
     doc.add_paragraph(data.get("key_functions", ""))
-
     doc.add_heading("4. Необходимые компетенции", level=1)
     doc.add_paragraph(data.get("competencies", ""))
-
-    doc.add_heading("5. Ценность моей работы для компании", level=1)
-    doc.add_paragraph("Прямая ценность (измеримая):\n" + data.get("direct_value", ""))
-    doc.add_paragraph("Косвенная ценность (неизмеримая):\n" + data.get("indirect_value", ""))
-
+    doc.add_heading("5. Ценность моей работы", level=1)
+    doc.add_paragraph("Прямая ценность:\n" + data.get("direct_value", ""))
+    doc.add_paragraph("Косвенная ценность:\n" + data.get("indirect_value", ""))
     doc.add_heading("6. Проблемы и сложности", level=1)
     doc.add_paragraph(data.get("problems", ""))
-
     doc.add_heading("7. Идеи по улучшению", level=1)
     doc.add_paragraph(data.get("improvements", ""))
-
     doc.add_heading("8. Мои цели и развитие", level=1)
     doc.add_paragraph(data.get("goals", ""))
-
     doc.add_heading("9. Обратная связь и предложения", level=1)
     doc.add_paragraph(data.get("feedback", ""))
-
     doc.add_heading("10. Итоговая самооценка", level=1)
-    doc.add_paragraph(f"Оценка эффективности (1-10):\n{data.get('self_rating', '')}")
-    doc.add_paragraph(f"Главная сильная сторона:\n{data.get('self_strength', '')}")
-    doc.add_paragraph(f"Над чем нужно работать:\n{data.get('self_weakness', '')}")
-    doc.add_paragraph(f"Одно изменение для повышения эффективности:\n{data.get('self_one_change', '')}")
-
+    doc.add_paragraph(f"Оценка: {data.get('self_rating', '')}")
+    doc.add_paragraph(f"Сильная сторона: {data.get('self_strength', '')}")
+    doc.add_paragraph(f"Что улучшить: {data.get('self_weakness', '')}")
+    doc.add_paragraph(f"Одно изменение: {data.get('self_one_change', '')}")
     doc.save(filename)
     return filename
 
@@ -508,14 +489,14 @@ async def run_health_check():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", 8080)
     await site.start()
-    logging.info("Health check server started on http://0.0.0.0:8080/health")
+    logging.info("Health check server started on port 8080")
 
 # ----------------------------------------------------------------------
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
-    logging.info("Webhook deleted, pending updates dropped.")
+    logging.info("Webhook deleted.")
     asyncio.create_task(run_health_check())
-    logging.info("Starting bot polling...")
+    logging.info("Starting polling...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
