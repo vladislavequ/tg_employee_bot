@@ -138,7 +138,6 @@ async def cmd_fill(message: types.Message, state: FSMContext):
     await state.set_state(Form.full_name)
 
 # ----------------------------------------------------------------------
-# Обработчик сообщений вне состояний (если пользователь пишет что-то не начав)
 @dp.message(StateFilter(None))
 async def no_state_handler(message: types.Message):
     await message.answer(
@@ -428,7 +427,6 @@ async def process_self_one_change(message: types.Message, state: FSMContext):
         logger.exception("Ошибка при создании документа")
         await message.answer(f"❌ Ошибка: {e}. Попробуйте ещё раз, нажав «📝 Заполнить анкету».")
 
-    # Очистка
     if uid in user_data:
         del user_data[uid]
     await state.clear()
@@ -439,7 +437,6 @@ def generate_docx(data: Dict[str, str], user_id: int) -> str:
     filename = f"Анкета_{fio}_{user_id}.docx"
     doc = Document()
 
-    # Заголовок
     title = doc.add_heading("Анкета сотрудника", level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     fill_date = data.get("date", datetime.now().strftime("%d.%m.%Y"))
@@ -509,7 +506,6 @@ def generate_docx(data: Dict[str, str], user_id: int) -> str:
     return filename
 
 # ----------------------------------------------------------------------
-# Health check server для Render
 async def health_check(request):
     return web.Response(text="OK", status=200)
 
@@ -524,10 +520,14 @@ async def run_health_check():
 
 # ----------------------------------------------------------------------
 async def main():
+    # 🔥 Ключевое исправление: удаляем старый вебхук и игнорируем накопленные обновления
+    await bot.delete_webhook(drop_pending_updates=True)
+    logging.info("Webhook deleted, pending updates dropped.")
+
     # Запускаем health‑сервер в фоне
     asyncio.create_task(run_health_check())
     logging.info("Starting bot polling...")
-    await dp.start_polling(bot, skip_updates=True)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
