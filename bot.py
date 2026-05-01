@@ -85,11 +85,9 @@ def get_rating_keyboard():
     return builder.as_markup()
 
 def get_date_keyboard():
-    today = datetime.now().strftime("%d.%m.%Y")
-    # Явно передаём inline_keyboard как список списков
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=f"Сегодня ({today})", callback_data="date_today")],
+            [InlineKeyboardButton(text="Сегодня", callback_data="date_today")],
             [InlineKeyboardButton(text="Ввести вручную", callback_data="date_manual")]
         ]
     )
