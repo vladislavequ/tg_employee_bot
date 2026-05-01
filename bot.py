@@ -112,7 +112,10 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 async def cmd_start(message: types.Message):
     await message.answer(
         "🏢 <b>Бот для заполнения анкеты сотрудника</b>\n\n"
-        "Нажмите «📝 Заполнить анкету», чтобы начать.",
+        "Я задам вопросы о вашей работе и сформирую документ .docx.\n\n"
+        "👉 Нажмите <b>«📝 Заполнить анкету»</b>, чтобы начать.\n"
+        "👉 <b>«❌ Отмена»</b> – прервать опрос.\n"
+        "👉 <b>«ℹ️ Помощь»</b> – справка.",
         reply_markup=get_main_keyboard()
     )
 
@@ -136,7 +139,7 @@ async def cmd_fill(message: types.Message, state: FSMContext):
         await message.answer("Уже идёт опрос. Используйте «❌ Отмена».", reply_markup=get_cancel_keyboard())
         return
     user_data[user_id] = {}
-    await message.answer("✏️ <b>Начинаем.</b>\nВведите ваше <b>ФИО</b>:", reply_markup=get_cancel_keyboard())
+    await message.answer("✏️ <b>Начинаем заполнение анкеты.</b>\nВведите ваше <b>ФИО</b>:", reply_markup=get_cancel_keyboard())
     await state.set_state(Form.full_name)
 
 # ----------------------------------------------------------------------
@@ -144,7 +147,7 @@ async def cmd_fill(message: types.Message, state: FSMContext):
 async def no_state_handler(message: types.Message):
     await message.answer(
         "❗ Чтобы начать, нажмите «📝 Заполнить анкету».\n"
-        "Если уже начали – возможно, сессия сбросилась. Используйте «❌ Отмена».",
+        "Если уже начали – возможно сессия сбросилась. Используйте «❌ Отмена».",
         reply_markup=get_main_keyboard()
     )
 
@@ -266,7 +269,7 @@ async def process_mission_absence(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['mission_absence'] = message.text.strip()
-    await message.answer("📋 <b>Ключевые функции</b>\nОпишите 2-3 важнейшие функции.")
+    await message.answer("📋 <b>Ключевые функции</b>\nОпишите 2-3 важнейшие функции. Для каждой: что входит, кому передаётся результат, стандарты.")
     await state.set_state(Form.key_functions)
 
 @dp.message(Form.key_functions)
@@ -277,7 +280,7 @@ async def process_key_functions(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['key_functions'] = message.text.strip()
-    await message.answer("🧠 <b>Необходимые компетенции</b>\nПеречислите навыки с уровнем владения (1-5).")
+    await message.answer("🧠 <b>Необходимые компетенции</b>\nПеречислите профессиональные, программные и мягкие навыки с уровнем владения (1-5) и примерами.")
     await state.set_state(Form.competencies)
 
 @dp.message(Form.competencies)
@@ -288,7 +291,7 @@ async def process_competencies(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['competencies'] = message.text.strip()
-    await message.answer("💰 <b>Прямая ценность</b>\nИзмеримые показатели (экономия времени, снижение ошибок).")
+    await message.answer("💰 <b>Прямая ценность вашей работы</b>\nПриведите измеримые показатели: экономия времени (часов в месяц), снижение ошибок (%), оптимизация затрат (руб.).")
     await state.set_state(Form.direct_value)
 
 @dp.message(Form.direct_value)
@@ -299,7 +302,7 @@ async def process_direct_value(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['direct_value'] = message.text.strip()
-    await message.answer("🌟 <b>Косвенная ценность</b>\nЧто нельзя измерить цифрами?")
+    await message.answer("🌟 <b>Косвенная ценность</b>\nЧто вы даёте компании, что нельзя измерить цифрами? (уникальные знания, поддержка процессов, связь между отделами)")
     await state.set_state(Form.indirect_value)
 
 @dp.message(Form.indirect_value)
@@ -310,7 +313,7 @@ async def process_indirect_value(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['indirect_value'] = message.text.strip()
-    await message.answer("⚠️ <b>Проблемы и сложности</b>\nЧто мешает работать эффективно?")
+    await message.answer("⚠️ <b>Проблемы и сложности</b>\nЧто мешает работать эффективно? (технические, организационные, коммуникационные)")
     await state.set_state(Form.problems)
 
 @dp.message(Form.problems)
@@ -321,7 +324,7 @@ async def process_problems(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['problems'] = message.text.strip()
-    await message.answer("💡 <b>Идеи по улучшению</b>\nЧто можете улучшить вы? Что – с помощью компании?")
+    await message.answer("💡 <b>Идеи по улучшению</b>\n1) Что можете улучшить сами?\n2) Что нужно улучшить с помощью компании?\n3) Инновационные идеи.")
     await state.set_state(Form.improvements)
 
 @dp.message(Form.improvements)
@@ -332,7 +335,7 @@ async def process_improvements(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['improvements'] = message.text.strip()
-    await message.answer("🎯 <b>Цели на ближайшие 6 месяцев</b>\nКакие цели ставите?")
+    await message.answer("🎯 <b>Цели на ближайшие 6 месяцев</b>\nКакие цели ставите? Какие навыки хотите развить? Как видите свой рост?")
     await state.set_state(Form.goals)
 
 @dp.message(Form.goals)
@@ -343,7 +346,7 @@ async def process_goals(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['goals'] = message.text.strip()
-    await message.answer("📢 <b>Обратная связь компании</b>\nЧто работает хорошо? Что изменить?")
+    await message.answer("📢 <b>Обратная связь компании</b>\n1) Что работает хорошо (сохранить)?\n2) Что нужно изменить в компании/отделе?")
     await state.set_state(Form.feedback)
 
 @dp.message(Form.feedback)
@@ -354,7 +357,7 @@ async def process_feedback(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['feedback'] = message.text.strip()
-    await message.answer("⭐ <b>Оцените свою эффективность</b> (1-10):", reply_markup=get_rating_keyboard())
+    await message.answer("⭐ <b>Оцените свою эффективность</b> по 10-балльной шкале (1 – очень низко, 10 – идеально):", reply_markup=get_rating_keyboard())
     await state.set_state(Form.self_rating)
 
 @dp.callback_query(Form.self_rating, F.data.startswith("rating_"))
@@ -402,7 +405,7 @@ async def process_self_weakness(message: types.Message, state: FSMContext):
         await message.answer("Ошибка. Начните заново.", reply_markup=get_main_keyboard())
         return
     user_data[uid]['self_weakness'] = message.text.strip()
-    await message.answer("🚀 <b>Одно изменение, которое повысит вашу эффективность</b>:")
+    await message.answer("🚀 <b>Одно изменение, которое больше всего повысит вашу эффективность</b>:")
     await state.set_state(Form.self_one_change)
 
 @dp.message(Form.self_one_change)
