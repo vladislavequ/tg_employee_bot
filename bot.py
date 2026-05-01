@@ -15,7 +15,8 @@ from aiogram.types import (
 )
 from aiogram.filters import Command, StateFilter
 from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties  # <-- новый импорт
+from aiogram.client.default import DefaultBotProperties
+from aiogram.utils.keyboard import InlineKeyboardBuilder  # <-- для удобной сборки
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -76,19 +77,22 @@ def get_cancel_keyboard():
     )
 
 def get_rating_keyboard():
-    kb = InlineKeyboardMarkup(row_width=5)
+    # Удобный способ: 2 ряда по 5 кнопок
+    builder = InlineKeyboardBuilder()
     for i in range(1, 11):
-        kb.insert(InlineKeyboardButton(text=str(i), callback_data=f"rating_{i}"))
-    return kb
+        builder.button(text=str(i), callback_data=f"rating_{i}")
+    builder.adjust(5)  # 5 кнопок в ряд
+    return builder.as_markup()
 
 def get_date_keyboard():
     today = datetime.now().strftime("%d.%m.%Y")
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton(text=f"Сегодня ({today})", callback_data="date_today"),
-        InlineKeyboardButton(text="Ввести вручную", callback_data="date_manual")
+    # Явно передаём inline_keyboard как список списков
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"Сегодня ({today})", callback_data="date_today")],
+            [InlineKeyboardButton(text="Ввести вручную", callback_data="date_manual")]
+        ]
     )
-    return kb
 
 # ----------------------------------------------------------------------
 @dp.message(Command("cancel"))
